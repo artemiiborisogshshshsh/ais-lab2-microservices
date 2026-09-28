@@ -1,7 +1,9 @@
-import bcrypt
-# user, phone, email, password
-users = {}
+import bcrypt # 
 import uuid
+
+users = {}
+# 'user':user, 'phone':phone, 'email':email, 'password':hashed_password
+
 def userRegistrarion(user, phone, email, password):
     global users
 
@@ -17,5 +19,5 @@ def userRegistrarion(user, phone, email, password):
     password = password.encode('utf-8')
     salt = bcrypt.gensalt(rounds=12)
     hashed_password = bcrypt.hashpw(password, salt)
-    users[user_id] = {user, phone, email, hashed_password}
+    users[user_id] = {'user':user, 'phone':phone, 'email':email, 'password':hashed_password}
     return True
