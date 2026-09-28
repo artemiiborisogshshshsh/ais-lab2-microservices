@@ -1,5 +1,5 @@
-import bcrypt # 
-import uuid
+import bcrypt # Для паролей
+import uuid # Для уникальных ID 
 
 users = {}
 # 'user':user, 'phone':phone, 'email':email, 'password':hashed_password
@@ -21,3 +21,5 @@ def userRegistrarion(user, phone, email, password):
     hashed_password = bcrypt.hashpw(password, salt)
     users[user_id] = {'user':user, 'phone':phone, 'email':email, 'password':hashed_password}
     return True
+
+
