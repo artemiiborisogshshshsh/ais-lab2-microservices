@@ -1,16 +1,14 @@
-import bcrypt
-from registration import users
+from auth_service.registration import users, password_context
+
 
 def login(username, password):
     for user_id, user_data in users.items():
         if user_data["user_name"] != username:
             continue
-        
-        password_bytes = password.encode("utf-8")
 
-        password_is_correct = bcrypt.checkpw(
-            password_bytes,
-            user_data["hashed_password"]
+        password_is_correct = password_context.verify(
+            password,
+            user_data["password"]
         )
 
         if password_is_correct:
@@ -23,4 +21,4 @@ def login(username, password):
 
         return None
 
-    return None        
+    return None
