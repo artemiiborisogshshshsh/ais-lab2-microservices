@@ -3,6 +3,7 @@ from pydantic import BaseModel
 
 from auth_service.registration import user_registration
 from auth_service.login import login
+from auth_service.jwt_utils import create_access_token
 
 
 app = FastAPI(title="Auth Service")
@@ -54,7 +55,12 @@ def login_user(data: LoginRequest):
             detail="Неверное имя пользователя или пароль",
         )
 
+    access_token = create_access_token(
+        user_id=user["user_id"],
+        username=user["user_name"],
+    )
+
     return {
-        "message": "Вход выполнен успешно",
-        "user": user,
+        "access_token": access_token,
+        "token_type": "bearer",
     }
