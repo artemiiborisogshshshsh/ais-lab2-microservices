@@ -54,3 +54,18 @@ def update_product(product_id: str, data: ProductRequest):
     }
 
     return products[product_id]
+
+@app.delete("/products/{product_id}")
+def delete_product(product_id: str):
+    if product_id not in products:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Товар не найден",
+        )
+
+    deleted_product = products.pop(product_id)
+
+    return {
+        "message": "Товар успешно удален",
+        "product": deleted_product,
+    }
