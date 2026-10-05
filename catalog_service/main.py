@@ -1,7 +1,7 @@
 import os
 import uuid
 
-from fastapi import FastAPI, status
+from fastapi import FastAPI, status,  HTTPException
 from pydantic import BaseModel
 
 
@@ -38,3 +38,34 @@ def create_product(data: ProductRequest):
     products[product_id] = product
 
     return product
+
+@app.put("/products/{product_id}")
+def update_product(product_id: str, data: ProductRequest):
+    if product_id not in products:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Товар не найден",
+        )
+
+    products[product_id] = {
+        "id": product_id,
+        "name": data.name,
+        "price": data.price,
+    }
+
+    return products[product_id]
+
+@app.delete("/products/{product_id}")
+def delete_product(product_id: str):
+    if product_id not in products:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Товар не найден",
+        )
+
+    deleted_product = products.pop(product_id)
+
+    return {
+        "message": "Товар успешно удален",
+        "product": deleted_product,
+    }
