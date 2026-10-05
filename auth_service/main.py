@@ -1,13 +1,15 @@
-from fastapi import FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
 from pydantic import BaseModel
 
 from auth_service.registration import user_registration
 from auth_service.login import login
-from auth_service.jwt_utils import create_access_token
+from auth_service.jwt_utils import create_access_token, decode_access_token
 
 
 app = FastAPI(title="Auth Service")
-
+security = HTTPBearer()
 
 class RegistrationRequest(BaseModel):
     username: str
@@ -64,3 +66,22 @@ def login_user(data: LoginRequest):
         "access_token": access_token,
         "token_type": "bearer",
     }
+
+
+@app.get("/me")
+def get_me(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    try:
+        payload = decode_access_token(credentials.credentials)
+
+        return {
+            "user_id": payload["sub"],
+            "username": payload["username"],
+        }
+
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Недействительный или просроченный токен",
+        )
