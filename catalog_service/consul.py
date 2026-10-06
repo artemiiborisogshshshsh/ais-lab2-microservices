@@ -55,3 +55,20 @@ async def register_service():
         f"Catalog Service зарегистрирован в Consul: "
         f"{SERVICE_ID}"
     )
+
+
+async def deregister_service():
+    url = (
+        f"{CONSUL_URL}/v1/agent/service/deregister/"
+        f"{SERVICE_ID}"
+    )
+
+    async with httpx.AsyncClient() as client:
+        response = await client.put(url)
+
+        response.raise_for_status()
+
+    print(
+        f"Catalog Service удален из Consul: "
+        f"{SERVICE_ID}"
+    )
