@@ -3,9 +3,13 @@ import uuid
 
 from fastapi import FastAPI, status,  HTTPException
 from pydantic import BaseModel
+from catalog_service.lifespan import lifespan
 
 
-app = FastAPI(title="Catalog Service")
+app = FastAPI(
+    title="Catalog Service",
+    lifespan=lifespan,
+)
 
 INSTANCE_NAME = os.getenv("INSTANCE_NAME", "catalog-local")
 
