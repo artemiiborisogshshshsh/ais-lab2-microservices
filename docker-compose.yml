@@ -55,3 +55,4 @@ services:
     depends_on:
       - catalog-1
       - catalog-2
+      - auth-service
