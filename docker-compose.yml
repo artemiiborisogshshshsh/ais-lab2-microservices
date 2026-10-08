@@ -1,4 +1,23 @@
 services:
+  consul:
+    image: hashicorp/consul:latest
+    command: agent -dev -client=0.0.0.0
+    ports:
+      - "8500:8500"
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: auth_service/Dockerfile
+    environment:
+      CONSUL_URL: http://consul:8500
+      SERVICE_NAME: auth
+      SERVICE_ID: auth-service
+      SERVICE_HOST: auth-service
+      PORT: 8000
+    depends_on:
+      - consul
+
   catalog-1:
     image: ais-catalog:latest
     build:
@@ -6,14 +25,25 @@ services:
       dockerfile: catalog_service/Dockerfile
     environment:
       INSTANCE_NAME: catalog-1
+      CONSUL_URL: http://consul:8500
+      SERVICE_NAME: catalog
+      SERVICE_ID: catalog-1
+      SERVICE_HOST: catalog-1
       PORT: 8000
+    depends_on:
+      - consul
 
   catalog-2:
     image: ais-catalog:latest
     environment:
       INSTANCE_NAME: catalog-2
+      CONSUL_URL: http://consul:8500
+      SERVICE_NAME: catalog
+      SERVICE_ID: catalog-2
+      SERVICE_HOST: catalog-2
       PORT: 8000
     depends_on:
+      - consul
       - catalog-1
 
   nginx:

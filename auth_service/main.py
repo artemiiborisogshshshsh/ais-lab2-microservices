@@ -6,9 +6,12 @@ from pydantic import BaseModel
 from auth_service.registration import user_registration
 from auth_service.login import login
 from auth_service.jwt_utils import create_access_token, decode_access_token
+from auth_service.lifespan import lifespan
 
-
-app = FastAPI(title="Auth Service")
+app = FastAPI(
+    title="Auth Service",
+    lifespan=lifespan,
+)
 security = HTTPBearer()
 
 class RegistrationRequest(BaseModel):
