@@ -15,8 +15,14 @@ ORDERS: list[Order] = [
         user_id="123",
         created_at=datetime(2026, 10, 12, 12, 0, tzinfo=timezone.utc),
         items=[
-            OrderItem(product_id="1", quantity=2),
-            OrderItem(product_id="5", quantity=1),
+                        OrderItem(
+                product_id="00000000-0000-4000-8000-000000000001",
+                quantity=2,
+            ),
+                        OrderItem(
+                product_id="00000000-0000-4000-8000-000000000002",
+                quantity=1,
+            ),
         ],
     ),
     Order(
