@@ -1,4 +1,3 @@
-
 """Тестовое in-memory хранилище Order Service."""
 
 from datetime import datetime, timezone
@@ -6,8 +5,7 @@ from datetime import datetime, timezone
 from .models import Order, OrderItem
 
 
-# ВАЖНО: product_id ниже — примеры.
-# Проверьте, что товары с такими ID существуют в Catalog.
+# Идентификаторы товаров соответствуют тестовым данным Catalog Service.
 
 ORDERS: list[Order] = [
     Order(
@@ -15,11 +13,11 @@ ORDERS: list[Order] = [
         user_id="123",
         created_at=datetime(2026, 10, 12, 12, 0, tzinfo=timezone.utc),
         items=[
-                        OrderItem(
+            OrderItem(
                 product_id="00000000-0000-4000-8000-000000000001",
                 quantity=2,
             ),
-                        OrderItem(
+            OrderItem(
                 product_id="00000000-0000-4000-8000-000000000002",
                 quantity=1,
             ),
@@ -30,7 +28,10 @@ ORDERS: list[Order] = [
         user_id="123",
         created_at=datetime(2026, 10, 12, 13, 30, tzinfo=timezone.utc),
         items=[
-            OrderItem(product_id="1", quantity=1),
+            OrderItem(
+                product_id="00000000-0000-4000-8000-000000000001",
+                quantity=1,
+            ),
         ],
     ),
     Order(
@@ -38,7 +39,10 @@ ORDERS: list[Order] = [
         user_id="456",
         created_at=datetime(2026, 10, 12, 14, 0, tzinfo=timezone.utc),
         items=[
-            OrderItem(product_id="2", quantity=3),
+            OrderItem(
+                product_id="00000000-0000-4000-8000-000000000002",
+                quantity=3,
+            ),
         ],
     ),
 ]
