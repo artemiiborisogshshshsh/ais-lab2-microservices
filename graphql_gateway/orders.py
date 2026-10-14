@@ -4,7 +4,7 @@ import httpx
 import strawberry
 
 from graphql import GraphQLError
-
+from graphql_gateway.products import Product
 
 # Адрес микросервиса заказов
 ORDER_SERVICE_URL = os.getenv(
@@ -14,10 +14,24 @@ ORDER_SERVICE_URL = os.getenv(
 
 
 # GraphQL-тип позиции заказа
+
 @strawberry.type
 class OrderItem:
     product_id: str
     quantity: int
+
+    @strawberry.field(
+        description="Информация о товаре из Catalog Service"
+    )
+    async def product(
+        self,
+        info: strawberry.Info
+    ) -> Product:
+
+        loader = info.context["product_loader"]
+
+        return await loader.load(self.product_id)
+
 
 
 # GraphQL-тип заказа
