@@ -66,3 +66,16 @@ services:
       dockerfile: order_service/Dockerfile
     ports:
       - "127.0.0.1:8003:8000"
+  
+  graphql-gateway:
+    build:
+      context: .
+      dockerfile: graphql_gateway/Dockerfile
+    ports:
+      - "127.0.0.1:8004:8000"
+    environment:
+      ORDER_SERVICE_URL: http://order-service:8000
+      CATALOG_SERVICE_URL: http://nginx/catalog
+    depends_on:
+      - order-service
+      - nginx
