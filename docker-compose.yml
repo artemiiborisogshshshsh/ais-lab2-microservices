@@ -60,3 +60,9 @@ services:
       - catalog-1
       - catalog-2
       - auth-service
+  order-service:
+    build:
+      context: .
+      dockerfile: order_service/Dockerfile
+    ports:
+      - "127.0.0.1:8003:8000"
