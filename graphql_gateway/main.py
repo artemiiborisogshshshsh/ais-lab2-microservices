@@ -1,7 +1,9 @@
+
 from fastapi import FastAPI
 from strawberry.fastapi import GraphQLRouter
 
 from graphql_gateway.schema import schema
+from graphql_gateway.products import create_product_loader
 
 
 app = FastAPI(
@@ -11,9 +13,16 @@ app = FastAPI(
 )
 
 
+def get_context():
+    return {
+        "product_loader": create_product_loader()
+    }
+
+
 graphql_router = GraphQLRouter(
     schema,
     graphql_ide="graphiql",
+    context_getter=get_context,
 )
 
 
