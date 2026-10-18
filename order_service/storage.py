@@ -69,3 +69,36 @@ def create_order(data: OrderCreate) -> Order:
     ORDERS.append(new_order)
 
     return new_order
+
+def confirm_order(order_id: str) -> bool:
+    """Подтвердить заказ после успешной оплаты."""
+
+    for order in ORDERS:
+
+        # Ищем заказ по идентификатору
+        if order.id == order_id:
+
+            # Подтверждаем только ожидающий заказ
+            if order.status == "PENDING":
+                order.status = "CONFIRMED"
+
+                print(
+                    f"Заказ {order_id} подтверждён",
+                    flush=True
+                )
+
+                return True
+
+            # Повторное подтверждение не меняет статус
+            if order.status == "CONFIRMED":
+                return True
+
+            # Отменённый заказ подтверждать нельзя
+            return False
+
+    print(
+        f"Заказ {order_id} не найден",
+        flush=True
+    )
+
+    return False

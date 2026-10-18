@@ -64,9 +64,33 @@ def process_order(ch, method, properties, body):
         print(f"Опубликовано PaymentFailed: {failed_event}", flush=True)
 
     else:
-        # Временное поведение до интеграции успешной ветки Артемия.
-        # Пока не отправляем сюда настоящие успешные заказы.
-        print("Успешная ветка будет добавлена Артемием", flush=True)
+        # Имитируем успешную оплату
+        completed_event = {
+            "event": "PaymentCompleted",
+            "orderId": order_id
+        }
+
+        # Публикуем событие успешной оплаты
+        ch.basic_publish(
+            exchange=EXCHANGE_NAME,
+            routing_key="payment.completed",
+            body=json.dumps(completed_event).encode("utf-8"),
+            mandatory=True,
+            properties=pika.BasicProperties(
+                delivery_mode=2,
+                content_type="application/json"
+            )
+        )
+
+        print(
+            f"Оплата заказа {order_id} прошла успешно",
+            flush=True
+        )
+
+        print(
+            f"Опубликовано PaymentCompleted: {completed_event}",
+            flush=True
+        )
 
     # Подтверждаем обработку сообщения
     ch.basic_ack(delivery_tag=method.delivery_tag)
@@ -102,18 +126,26 @@ def main():
     )
 
     
-    # Очередь, в которую Order Service получит PaymentFailed
+    # Очередь событий для Order Service
     channel.queue_declare(
         queue="lab4.order",
         durable=True
     )
 
+    # Результат неуспешной оплаты
     channel.queue_bind(
         exchange=EXCHANGE_NAME,
         queue="lab4.order",
         routing_key="payment.failed"
     )
 
+    # Результат успешной оплаты
+    channel.queue_bind(
+        exchange=EXCHANGE_NAME,
+        queue="lab4.order",
+        routing_key="payment.completed"
+    )
+    
     # Ожидаем подтверждения публикации от RabbitMQ
     channel.confirm_delivery()
 
