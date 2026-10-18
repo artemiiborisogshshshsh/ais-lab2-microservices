@@ -1,15 +1,15 @@
 """REST API для Order Service."""
 
 from fastapi import FastAPI, Query
-
-from .models import Order
-from .storage import get_orders_by_user_id
+from .events import publish_order_created
+from .models import Order, OrderCreate
+from .storage import get_orders_by_user_id, create_order
 
 
 app = FastAPI(
     title="Order Service",
-    description="REST API для получения заказов пользователей",
-    version="1.0.0",
+    description="REST API для создания и получения заказов",
+    version="1.1.0",
 )
 
 
@@ -29,3 +29,29 @@ def get_orders(
 ) -> list[Order]:
 
     return get_orders_by_user_id(user_id)
+
+
+@app.post(
+    "/orders",
+    response_model=Order,
+    status_code=201,
+    summary="Создать новый заказ"
+)
+def create_new_order(data: OrderCreate) -> Order:
+    """Создать заказ и опубликовать событие OrderCreated."""
+
+    # Создаём заказ со статусом PENDING
+    order = create_order(data)
+
+    print(
+        f"Создан заказ {order.id}, статус: {order.status}",
+        flush=True
+    )
+
+    # Отправляем событие в RabbitMQ
+    publish_order_created(
+        order,
+        simulate_failure=data.simulate_failure
+    )
+
+    return order
