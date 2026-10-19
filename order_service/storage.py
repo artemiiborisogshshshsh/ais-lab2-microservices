@@ -102,3 +102,36 @@ def confirm_order(order_id: str) -> bool:
     )
 
     return False
+
+
+def cancel_order(order_id: str) -> bool:
+    """Отменить заказ после ошибки оплаты."""
+
+    for order in ORDERS:
+
+        if order.id == order_id:
+
+            # Отменяем только ожидающий заказ
+            if order.status == "PENDING":
+                order.status = "CANCELLED"
+
+                print(
+                    f"Заказ {order_id} отменён",
+                    flush=True
+                )
+
+                return True
+
+            # Повторная отмена не меняет состояние
+            if order.status == "CANCELLED":
+                return True
+
+            # Подтверждённый заказ отменять нельзя
+            return False
+
+    print(
+        f"Заказ {order_id} не найден",
+        flush=True
+    )
+
+    return False

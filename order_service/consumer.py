@@ -7,7 +7,8 @@ from threading import Event
 
 import pika
 
-from .storage import confirm_order
+from .storage import confirm_order, cancel_order, ORDERS
+from .events import publish_order_cancelled
 
 
 EXCHANGE_NAME = "lab4.events"
@@ -69,11 +70,68 @@ def process_payment_result(ch, method, properties, body, stop_event):
             )
             stop_event.set()
 
+   
+    elif event_name == "PaymentFailed":
+
+        # Проверяем, не был ли заказ уже отменён
+        order = next(
+            (order for order in ORDERS if order.id == order_id),
+            None
+        )
+
+        if order is not None and order.status == "CANCELLED":
+            print(
+                f"Заказ {order_id} уже отменён",
+                flush=True
+            )
+            ch.basic_ack(delivery_tag=method.delivery_tag)
+            return
+
+        # Выполняем компенсацию
+        cancelled = cancel_order(order_id)
+
+        if cancelled:
+            reason = event.get("reason") or "Ошибка оплаты"
+
+            try:
+                # Сообщаем остальным сервисам об отмене
+                publish_order_cancelled(order_id, reason)
+
+            except (pika.exceptions.AMQPError, OSError) as error:
+                print(
+                    f"Ошибка публикации OrderCancelled: {error}",
+                    flush=True
+                )
+
+                ch.basic_nack(
+                    delivery_tag=method.delivery_tag,
+                    requeue=True
+                )
+                stop_event.set()
+                return
+
+            ch.basic_ack(delivery_tag=method.delivery_tag)
+
+            print(
+                f"Компенсация выполнена: {order_id}",
+                flush=True
+            )
+
+        else:
+            print(
+                f"Не удалось отменить заказ {order_id}",
+                flush=True
+            )
+
+            ch.basic_nack(
+                delivery_tag=method.delivery_tag,
+                requeue=True
+            )
+            stop_event.set()
+
     else:
-        # PaymentFailed будет обрабатывать код компенсации Никиты.
-        # До его подключения не подтверждаем это сообщение.
         print(
-            f"Обработчик {event_name} пока не подключён",
+            f"Неизвестное событие: {event_name}",
             flush=True
         )
 
@@ -82,6 +140,7 @@ def process_payment_result(ch, method, properties, body, stop_event):
             requeue=True
         )
         stop_event.set()
+
 
 
 def consume_payment_results(stop_event: Event):
@@ -113,6 +172,14 @@ def consume_payment_results(stop_event: Event):
                 queue=QUEUE_NAME,
                 routing_key="payment.completed"
             )
+            
+            # Подписка на ошибки оплаты
+            channel.queue_bind(
+                exchange=EXCHANGE_NAME,
+                queue=QUEUE_NAME,
+                routing_key="payment.failed"
+            )
+
 
             channel.basic_qos(prefetch_count=1)
 
@@ -125,10 +192,13 @@ def consume_payment_results(stop_event: Event):
                 auto_ack=False
             )
 
+           
             print(
-                "Order Consumer запущен. Ожидание PaymentCompleted...",
+                "Order Consumer запущен. "
+                "Ожидание PaymentCompleted и PaymentFailed...",
                 flush=True
             )
+
 
             while not stop_event.is_set():
                 connection.process_data_events(time_limit=1)
