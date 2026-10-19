@@ -91,3 +91,31 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: lab4
       RABBITMQ_DEFAULT_PASS: lab4pass
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 10s
+
+  payment-service:
+    build:
+      context: .
+      dockerfile: payment_service/Dockerfile
+    environment:
+      RABBITMQ_URL: amqp://lab4:lab4pass@rabbitmq:5672/%2F
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: notification_service/Dockerfile
+    environment:
+      RABBITMQ_URL: amqp://lab4:lab4pass@rabbitmq:5672/%2F
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
