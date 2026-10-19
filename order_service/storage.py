@@ -1,8 +1,9 @@
 """Тестовое in-memory хранилище Order Service."""
 
 from datetime import datetime, timezone
+from uuid import uuid4
 
-from .models import Order, OrderItem
+from .models import Order, OrderItem, OrderCreate
 
 
 # Идентификаторы товаров соответствуют тестовым данным Catalog Service.
@@ -51,3 +52,53 @@ ORDERS: list[Order] = [
 def get_orders_by_user_id(user_id: str) -> list[Order]:
     """Вернуть заказы пользователя или пустой список."""
     return [order for order in ORDERS if order.user_id == user_id]
+
+
+def create_order(data: OrderCreate) -> Order:
+    """Создать новый заказ и сохранить его в памяти."""
+
+    new_order = Order(
+        id=str(uuid4()),
+        user_id=data.user_id,
+        created_at=datetime.now(timezone.utc),
+        items=data.items,
+        status="PENDING",
+        total_amount=data.total_amount
+    )
+
+    ORDERS.append(new_order)
+
+    return new_order
+
+def confirm_order(order_id: str) -> bool:
+    """Подтвердить заказ после успешной оплаты."""
+
+    for order in ORDERS:
+
+        # Ищем заказ по идентификатору
+        if order.id == order_id:
+
+            # Подтверждаем только ожидающий заказ
+            if order.status == "PENDING":
+                order.status = "CONFIRMED"
+
+                print(
+                    f"Заказ {order_id} подтверждён",
+                    flush=True
+                )
+
+                return True
+
+            # Повторное подтверждение не меняет статус
+            if order.status == "CONFIRMED":
+                return True
+
+            # Отменённый заказ подтверждать нельзя
+            return False
+
+    print(
+        f"Заказ {order_id} не найден",
+        flush=True
+    )
+
+    return False

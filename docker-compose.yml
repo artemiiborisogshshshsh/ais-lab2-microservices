@@ -66,6 +66,10 @@ services:
       dockerfile: order_service/Dockerfile
     ports:
       - "127.0.0.1:8003:8000"
+    environment:
+      RABBITMQ_URL: amqp://lab4:lab4pass@rabbitmq:5672/%2F
+    depends_on:
+      - rabbitmq
   
   graphql-gateway:
     build:
@@ -85,5 +89,5 @@ services:
       - "5672:5672"
       - "15672:15672"
     environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_DEFAULT_USER: lab4
+      RABBITMQ_DEFAULT_PASS: lab4pass
