@@ -64,3 +64,48 @@ def publish_order_created(
     finally:
         if connection.is_open:
             connection.close()
+
+
+def publish_order_cancelled(order_id: str, reason: str) -> None:
+    """Опубликовать событие отмены заказа."""
+
+    connection = pika.BlockingConnection(
+        pika.URLParameters(os.environ["RABBITMQ_URL"])
+    )
+
+    try:
+        channel = connection.channel()
+
+        channel.exchange_declare(
+            exchange=EXCHANGE_NAME,
+            exchange_type="topic",
+            durable=True
+        )
+
+        channel.confirm_delivery()
+
+        event = {
+            "event": "OrderCancelled",
+            "orderId": order_id,
+            "reason": reason
+        }
+
+        channel.basic_publish(
+            exchange=EXCHANGE_NAME,
+            routing_key="order.cancelled",
+            body=json.dumps(event).encode("utf-8"),
+            mandatory=True,
+            properties=pika.BasicProperties(
+                delivery_mode=2,
+                content_type="application/json"
+            )
+        )
+
+        print(
+            f"Опубликовано OrderCancelled: {event}",
+            flush=True
+        )
+
+    finally:
+        if connection.is_open:
+            connection.close()
