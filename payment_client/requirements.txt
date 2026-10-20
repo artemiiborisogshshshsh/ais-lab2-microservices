@@ -1,0 +1,4 @@
+
+grpcio>=1.84,<2
+protobuf>=7.35.1,<8
+pybreaker>=1.4,<2
