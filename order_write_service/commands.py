@@ -13,9 +13,9 @@ class InvalidOrderOperationError(Exception):
 
 
 class OrderCommands:
-
-    def __init__(self, event_store):
+    def __init__(self, event_store, event_publisher=None):
         self.event_store = event_store
+        self.event_publisher = event_publisher
 
     def create_order(self, user_id, items, total_amount):
         """Создать заказ."""
@@ -55,6 +55,9 @@ class OrderCommands:
             expected_version=0
         )
 
+        if self.event_publisher is not None:
+            self.event_publisher.publish(event)
+
         return event
 
     def pay_order(self, order_id):
@@ -87,5 +90,8 @@ class OrderCommands:
             },
             expected_version=state["version"]
         )
+
+        if self.event_publisher is not None:
+            self.event_publisher.publish(event)
 
         return event

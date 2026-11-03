@@ -12,7 +12,7 @@ from order_write_service.commands import (
     OrderNotFoundError,
     InvalidOrderOperationError,
 )
-
+from order_write_service.kafka_producer import KafkaEventPublisher
 
 # Создаём FastAPI-приложение
 app = FastAPI(
@@ -23,10 +23,14 @@ app = FastAPI(
 
 # Создаём единое In-Memory хранилище
 event_store = EventStore()
+publisher = KafkaEventPublisher()
+
 
 # Передаём хранилище обработчику команд
-commands = OrderCommands(event_store)
-
+commands = OrderCommands(
+    event_store,
+    event_publisher=publisher,
+)
 
 # Описываем формат запроса на создание заказа
 class CreateOrderRequest(BaseModel):
