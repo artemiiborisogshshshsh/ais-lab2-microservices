@@ -1,4 +1,3 @@
-
 services:
   consul:
     image: hashicorp/consul:latest
@@ -61,7 +60,6 @@ services:
       - catalog-1
       - catalog-2
       - auth-service
-
   order-service:
     build:
       context: .
@@ -85,7 +83,6 @@ services:
     depends_on:
       - order-service
       - nginx
-
   rabbitmq:
     image: rabbitmq:3-management
     ports:
@@ -133,7 +130,6 @@ services:
       GRPC_PORT: "50051"
     restart: unless-stopped
 
-  # ЛР6: Apache Kafka
   kafka:
     image: apache/kafka:4.1.2
     ports:
@@ -153,9 +149,8 @@ services:
     volumes:
       - kafka-data:/var/lib/kafka/data
 
-  # ЛР6: Kafka UI
   kafka-ui:
-    image: ghcr.io/kafbat/kafka-ui:latest
+    image: ghcr.io/kafbat/kafka-ui:v1.4.2
     ports:
       - "127.0.0.1:8085:8080"
     environment:
@@ -163,8 +158,6 @@ services:
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9093
     depends_on:
       - kafka
-
-  # ЛР6: CQRS Read Side
   
   order-read-service:
     build:
@@ -178,7 +171,5 @@ services:
       - kafka
     restart: unless-stopped
 
-
 volumes:
   kafka-data:
-  
