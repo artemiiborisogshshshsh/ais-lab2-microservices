@@ -95,3 +95,38 @@ class OrderCommands:
             self.event_publisher.publish(event)
 
         return event
+    
+    def cancel_order(self, order_id):
+        """Отменить созданный или оплаченный заказ."""
+
+        # Загружаем события заказа
+        events = self.event_store.get_events(order_id)
+
+        # Восстанавливаем текущее состояние
+        state = rehydrate_order(events)
+
+        if state is None:
+            raise OrderNotFoundError(
+                f"Заказ {order_id} не найден"
+            )
+
+        # Проверяем бизнес-правила
+        if state["status"] not in ("CREATED", "PAID"):
+            raise InvalidOrderOperationError(
+                "Заказ уже отменён"
+            )
+
+        # Записываем новое событие
+        event = self.event_store.append_event(
+            order_id=order_id,
+            event_type="OrderCancelled",
+            payload={},
+            expected_version=state["version"]
+        )
+
+        # Публикуем событие в Kafka
+        if self.event_publisher is not None:
+            self.event_publisher.publish(event)
+
+        return event
+

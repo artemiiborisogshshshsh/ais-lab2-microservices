@@ -78,3 +78,26 @@ def pay_order(order_id: str):
             status_code=409,
             detail=str(error)
         ) from error
+
+@app.post("/orders/{order_id}/cancel", status_code=201)
+def cancel_order(order_id: str):
+    """Отменить заказ."""
+
+    try:
+        return commands.cancel_order(order_id)
+
+    except OrderNotFoundError as error:
+        raise HTTPException(
+            status_code=404,
+            detail=str(error)
+        ) from error
+
+    except (
+        InvalidOrderOperationError,
+        ConcurrencyError
+    ) as error:
+        raise HTTPException(
+            status_code=409,
+            detail=str(error)
+        ) from error
+
