@@ -165,6 +165,7 @@ services:
       - kafka
 
   # ЛР6: CQRS Read Side
+  
   order-read-service:
     build:
       context: .
@@ -173,13 +174,11 @@ services:
       - "127.0.0.1:8005:8000"
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9093
-      READ_DB_PATH: /data/orders_read.db
-    volumes:
-      - order-read-data:/data
     depends_on:
       - kafka
     restart: unless-stopped
 
+
 volumes:
   kafka-data:
-  order-read-data:
+  

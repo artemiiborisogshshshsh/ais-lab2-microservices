@@ -1,128 +1,111 @@
 
 import json
 import os
-import sqlite3
-from contextlib import asynccontextmanager, contextmanager
-from pathlib import Path
-from threading import Event, Thread
+from copy import deepcopy
+from contextlib import asynccontextmanager
+from threading import Event, Lock, Thread
 
 from fastapi import FastAPI, HTTPException
 from kafka import KafkaConsumer
 
 
-DB_PATH = os.getenv("READ_DB_PATH", "/data/orders_read.db")
-KAFKA_SERVER = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9093")
+# Настройки Kafka
+KAFKA_SERVER = os.getenv(
+    "KAFKA_BOOTSTRAP_SERVERS",
+    "kafka:9093"
+)
 TOPIC = "orders-events"
 
 
-@contextmanager
-def database():
-    conn = sqlite3.connect(DB_PATH, timeout=30)
-    try:
-        yield conn
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
+# In-Memory Read Model
+# Ключ — orderId, значение — текущее состояние заказа
+orders_read = {}
 
+# Идентификаторы уже обработанных событий
+processed_events = set()
 
-def init_database():
-    Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
-
-    with database() as conn:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS orders_read (
-                order_id TEXT PRIMARY KEY,
-                user_id TEXT NOT NULL,
-                items_json TEXT NOT NULL,
-                total_amount REAL NOT NULL,
-                status TEXT NOT NULL,
-                version INTEGER NOT NULL,
-                updated_at TEXT NOT NULL
-            )
-        """)
-
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS processed_events (
-                event_id TEXT PRIMARY KEY
-            )
-        """)
+# Защита данных от одновременного изменения из разных потоков
+model_lock = Lock()
 
 
 def apply_event(event):
-    """Обновить read-модель по событию из Kafka."""
+    """Применить событие к In-Memory read-модели."""
 
     event_id = event["eventId"]
     order_id = event["orderId"]
     event_type = event["eventType"]
-    version = int(event["version"])
-    timestamp = event["timestamp"]
     payload = event["payload"]
+    timestamp = event["timestamp"]
+    version = event["version"]
 
-    with database() as conn:
-        # Защита от повторной доставки события
-        duplicate = conn.execute(
-            "SELECT 1 FROM processed_events WHERE event_id = ?",
-            (event_id,)
-        ).fetchone()
+    with model_lock:
 
-        if duplicate:
+        # Не обрабатываем повторно одно и то же событие
+        if event_id in processed_events:
+            print(
+                f"Пропущен дубликат события: {event_id}",
+                flush=True
+            )
             return
 
-        current = conn.execute(
-            "SELECT version FROM orders_read WHERE order_id = ?",
-            (order_id,)
-        ).fetchone()
+        current = orders_read.get(order_id)
 
+        # Создание заказа
         if event_type == "OrderCreated":
-            if current or version != 1:
-                raise ValueError("Некорректное создание заказа")
 
-            conn.execute("""
-                INSERT INTO orders_read
-                (order_id, user_id, items_json,
-                 total_amount, status, version, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (
-                order_id,
-                payload["userId"],
-                json.dumps(payload["items"], ensure_ascii=False),
-                payload["totalAmount"],
-                "CREATED",
-                version,
-                timestamp
-            ))
+            if current is not None:
+                raise ValueError("Заказ уже существует")
 
+            if version != 1:
+                raise ValueError("Первая версия должна быть 1")
+
+            orders_read[order_id] = {
+                "id": order_id,
+                "userId": payload["userId"],
+                "items": deepcopy(payload["items"]),
+                "totalAmount": payload["totalAmount"],
+                "status": "CREATED",
+                "version": version,
+                "updatedAt": timestamp
+            }
+
+        # Оплата или отмена заказа
         elif event_type in ("OrderPaid", "OrderCancelled"):
-            if not current or version != current[0] + 1:
-                raise ValueError("Нарушена последовательность версий")
 
-            status = (
-                "PAID" if event_type == "OrderPaid"
-                else "CANCELLED"
-            )
+            if current is None:
+                raise ValueError("Заказ не найден")
 
-            conn.execute("""
-                UPDATE orders_read
-                SET status = ?, version = ?, updated_at = ?
-                WHERE order_id = ?
-            """, (status, version, timestamp, order_id))
+            if version != current["version"] + 1:
+                raise ValueError(
+                    "Нарушена последовательность версий"
+                )
+
+            if event_type == "OrderPaid":
+                status = "PAID"
+            else:
+                status = "CANCELLED"
+
+            current["status"] = status
+            current["version"] = version
+            current["updatedAt"] = timestamp
 
         else:
-            raise ValueError(f"Неизвестный тип события: {event_type}")
+            raise ValueError(
+                f"Неизвестный тип события: {event_type}"
+            )
 
-        conn.execute(
-            "INSERT INTO processed_events (event_id) VALUES (?)",
-            (event_id,)
-        )
+        # Запоминаем успешно обработанное событие
+        processed_events.add(event_id)
 
-    print(f"Read-модель обновлена: {order_id}, {event_type}", flush=True)
+    print(
+        f"Read-модель обновлена: {order_id}, "
+        f"{event_type}, версия {version}",
+        flush=True
+    )
 
 
 def consume_events(stop_event):
-    """Получать события Kafka и обновлять read-модель."""
+    """Читать Kafka и восстанавливать In-Memory read-модель."""
 
     while not stop_event.is_set():
         consumer = None
@@ -131,7 +114,7 @@ def consume_events(stop_event):
             consumer = KafkaConsumer(
                 TOPIC,
                 bootstrap_servers=KAFKA_SERVER,
-                group_id="lab6-order-read-v1",
+                group_id=None,
                 auto_offset_reset="earliest",
                 enable_auto_commit=False,
                 value_deserializer=lambda data: json.loads(
@@ -139,21 +122,35 @@ def consume_events(stop_event):
                 )
             )
 
-            print("Kafka Consumer подключён", flush=True)
+            print(
+                "Kafka Consumer подключён. "
+                "Восстанавливаем read-модель из событий...",
+                flush=True
+            )
 
             while not stop_event.is_set():
                 batches = consumer.poll(
                     timeout_ms=1000,
-                    max_records=1
+                    max_records=100
                 )
 
                 for messages in batches.values():
                     for message in messages:
-                        apply_event(message.value)
-                        consumer.commit()
+                        try:
+                            apply_event(message.value)
+
+                        except (KeyError, TypeError, ValueError) as error:
+                            print(
+                                f"Ошибка обработки события "
+                                f"offset={message.offset}: {error}",
+                                flush=True
+                            )
 
         except Exception as error:
-            print(f"Ошибка Kafka Consumer: {error}", flush=True)
+            print(
+                f"Ошибка Kafka Consumer: {error}",
+                flush=True
+            )
             stop_event.wait(3)
 
         finally:
@@ -163,58 +160,55 @@ def consume_events(stop_event):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    init_database()
+    """Запуск Consumer вместе с FastAPI."""
 
     stop_event = Event()
-    thread = Thread(
+
+    consumer_thread = Thread(
         target=consume_events,
         args=(stop_event,),
         daemon=True
     )
-    thread.start()
+
+    consumer_thread.start()
 
     try:
         yield
+
     finally:
         stop_event.set()
-        thread.join(timeout=5)
+        consumer_thread.join(timeout=5)
 
 
 app = FastAPI(
-    title="Order Read Service",
+    title="Order Read Service - In Memory",
+    description="CQRS Read Side для лабораторной №6",
     lifespan=lifespan
 )
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "storage": "in-memory"
+    }
 
 
 @app.get("/orders/{order_id}")
 def get_order(order_id: str):
-    """Читать заказ только из read-модели."""
+    """Получить заказ только из In-Memory read-модели."""
 
-    with database() as conn:
-        row = conn.execute("""
-            SELECT order_id, user_id, items_json,
-                   total_amount, status, version, updated_at
-            FROM orders_read
-            WHERE order_id = ?
-        """, (order_id,)).fetchone()
+    with model_lock:
+        order = orders_read.get(order_id)
 
-    if row is None:
+        if order is not None:
+            order = deepcopy(order)
+
+    if order is None:
         raise HTTPException(
             status_code=404,
             detail="Заказ не найден в read-модели"
         )
 
-    return {
-        "id": row[0],
-        "userId": row[1],
-        "items": json.loads(row[2]),
-        "totalAmount": row[3],
-        "status": row[4],
-        "version": row[5],
-        "updatedAt": row[6]
-    }
+    return order
