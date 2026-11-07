@@ -158,5 +158,18 @@ services:
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9093
     depends_on:
       - kafka
+  
+  order-read-service:
+    build:
+      context: .
+      dockerfile: order_read_service/Dockerfile
+    ports:
+      - "127.0.0.1:8005:8000"
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9093
+    depends_on:
+      - kafka
+    restart: unless-stopped
+
 volumes:
   kafka-data:
