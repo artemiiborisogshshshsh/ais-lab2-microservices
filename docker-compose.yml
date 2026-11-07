@@ -170,6 +170,16 @@ services:
     depends_on:
       - kafka
     restart: unless-stopped
-
+  analytics-service:
+    build:
+      context: .
+      dockerfile: analytics_service/Dockerfile
+    ports:
+      - "127.0.0.1:8006:8000"
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9093
+    depends_on:
+      - kafka
+    restart: unless-stopped
 volumes:
   kafka-data:
