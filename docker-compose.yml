@@ -1,4 +1,13 @@
 services:
+  jwt-validator:
+    build:
+      context: .
+      dockerfile: jwt_validator/Dockerfile
+    environment:
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY_is_required}
+    expose:
+      - "8000"
+    restart: unless-stopped
   consul:
     image: hashicorp/consul:latest
     command: agent -dev -client=0.0.0.0
@@ -33,8 +42,6 @@ services:
       PORT: 8000
     depends_on:
       - consul
-    ports:
-      - "127.0.0.1:8001:8000"
 
   catalog-2:
     image: ais-catalog:latest
@@ -48,8 +55,7 @@ services:
     depends_on:
       - consul
       - catalog-1
-    ports:
-      - "127.0.0.1:8002:8000"
+
 
   nginx:
     image: nginx:alpine
@@ -61,6 +67,7 @@ services:
       - catalog-1
       - catalog-2
       - auth-service
+      - jwt-validator
   order-service:
     build:
       context: .
