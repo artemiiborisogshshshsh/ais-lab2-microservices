@@ -1,7 +1,7 @@
 import os
 import uuid
 
-from fastapi import FastAPI, status, HTTPException, Query
+from fastapi import FastAPI, status, HTTPException, Query, Header, Depends
 from pydantic import BaseModel
 from catalog_service.lifespan import lifespan
 
@@ -43,7 +43,17 @@ class ProductRequest(BaseModel):
     name: str
     price: float
 
-
+def require_admin(
+    x_user_role: str | None = Header(
+        default=None,
+        alias="X-User-Role",
+    ),
+):
+    if x_user_role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Недостаточно прав: требуется роль admin",
+        )
 
 @app.get(
     "/products",
@@ -75,7 +85,10 @@ def get_products(
 
 
 @app.post("/products", status_code=status.HTTP_201_CREATED)
-def create_product(data: ProductRequest):
+def create_product(
+    data: ProductRequest,
+    _: None = Depends(require_admin),
+):
     product_id = str(uuid.uuid4())
 
     product = {
@@ -89,7 +102,11 @@ def create_product(data: ProductRequest):
     return product
 
 @app.put("/products/{product_id}")
-def update_product(product_id: str, data: ProductRequest):
+def update_product(
+    product_id: str,
+    data: ProductRequest,
+    _: None = Depends(require_admin),
+):
     if product_id not in products:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -105,7 +122,10 @@ def update_product(product_id: str, data: ProductRequest):
     return products[product_id]
 
 @app.delete("/products/{product_id}")
-def delete_product(product_id: str):
+def delete_product(
+    product_id: str,
+    _: None = Depends(require_admin),
+):
     if product_id not in products:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
