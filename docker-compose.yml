@@ -15,6 +15,7 @@ services:
       SERVICE_ID: auth-service
       SERVICE_HOST: auth-service
       PORT: 8000
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY_is_required}
     depends_on:
       - consul
 
@@ -192,5 +193,6 @@ services:
     depends_on:
       - kafka
     restart: unless-stopped
+  
 volumes:
   kafka-data:
