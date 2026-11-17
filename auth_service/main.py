@@ -1,3 +1,5 @@
+from typing import Literal
+
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
@@ -6,7 +8,6 @@ from auth_service.registration import user_registration
 from auth_service.login import login
 from auth_service.jwt_utils import create_access_token, decode_access_token
 from auth_service.lifespan import lifespan
-
 
 # Настройка приложения и документации OpenAPI
 
@@ -47,6 +48,11 @@ class RegistrationRequest(BaseModel):
         ...,
         description="Пароль пользователя",
         examples=["ExamplePassword123!"],
+    )
+    role: Literal["user"] = Field(
+        default="user",
+        description="Роль нового пользователя",
+        examples=["user"],
     )
 
 
@@ -111,6 +117,7 @@ def register(data: RegistrationRequest):
         phone=data.phone,
         email=data.email,
         password=data.password,
+        role=data.role,
     )
 
     if not registration_success:
