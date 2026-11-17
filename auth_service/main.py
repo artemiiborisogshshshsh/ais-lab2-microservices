@@ -50,17 +50,19 @@ class RegistrationRequest(BaseModel):
     )
 
 
+
 class LoginRequest(BaseModel):
-    username: str = Field(
+    email: str = Field(
         ...,
-        description="Имя зарегистрированного пользователя",
-        examples=["student_demo"],
+        description="Электронная почта зарегистрированного пользователя",
+        examples=["student@example.com"],
     )
     password: str = Field(
         ...,
         description="Пароль пользователя",
         examples=["ExamplePassword123!"],
     )
+
 
 
 # Модели ответов
@@ -146,7 +148,7 @@ def register(data: RegistrationRequest):
 )
 def login_user(data: LoginRequest):
     user = login(
-        username=data.username,
+        email=data.email,
         password=data.password,
     )
 
@@ -155,11 +157,13 @@ def login_user(data: LoginRequest):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Неверное имя пользователя или пароль",
         )
-
+    
     access_token = create_access_token(
         user_id=user["user_id"],
         username=user["user_name"],
+        role=user["role"],
     )
+
 
     return {
         "access_token": access_token,
