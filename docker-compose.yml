@@ -25,6 +25,9 @@ services:
       SERVICE_HOST: auth-service
       PORT: 8000
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY_is_required}
+      BOOTSTRAP_ADMIN_USERNAME: ${BOOTSTRAP_ADMIN_USERNAME:-}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
     depends_on:
       - consul
 
@@ -59,8 +62,6 @@ services:
 
   nginx:
     image: nginx:alpine
-    ports:
-      - "8080:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
@@ -68,12 +69,12 @@ services:
       - catalog-2
       - auth-service
       - jwt-validator
+      - order-service
   order-service:
     build:
       context: .
       dockerfile: order_service/Dockerfile
-    ports:
-      - "127.0.0.1:8003:8000"
+
     environment:
       RABBITMQ_URL: amqp://lab4:lab4pass@rabbitmq:5672/%2F
     depends_on:
@@ -210,7 +211,7 @@ services:
     environment:
       AUTH_SERVICE_URL: http://auth-service:8000
       CATALOG_SERVICE_URL: http://nginx/catalog
-      ORDER_SERVICE_URL: http://order-service:8000
+      ORDER_SERVICE_URL: http://nginx
     depends_on:
       - auth-service
       - nginx
