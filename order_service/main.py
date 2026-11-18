@@ -1,6 +1,13 @@
 """REST API для Order Service."""
 
-from fastapi import FastAPI, Query
+from fastapi import (
+    FastAPI,
+    Query,
+    Header,
+    Depends,
+    HTTPException,
+    status,
+)
 from .events import publish_order_created
 from .models import Order, OrderCreate
 from .storage import get_orders_by_user_id, create_order
@@ -54,14 +61,46 @@ def get_orders(
     return get_orders_by_user_id(user_id)
 
 
+def require_authenticated_role(
+    x_user_id: str | None = Header(
+        default=None,
+        alias="X-User-Id",
+    ),
+    x_user_role: str | None = Header(
+        default=None,
+        alias="X-User-Role",
+    ),
+):
+    if not x_user_id or x_user_role not in ("user", "admin"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Недостаточно прав для создания заказа",
+        )
+
+    return {
+        "user_id": x_user_id,
+        "role": x_user_role,
+    }
+
 @app.post(
     "/orders",
     response_model=Order,
     status_code=201,
     summary="Создать новый заказ"
 )
-def create_new_order(data: OrderCreate) -> Order:
+def create_new_order(
+    data: OrderCreate,
+    user_info: dict = Depends(require_authenticated_role),
+) -> Order:
     """Создать заказ и опубликовать событие OrderCreated."""
+    if (
+        user_info["role"] == "user"
+        and data.user_id != user_info["user_id"]
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Нельзя создать заказ от имени другого пользователя",
+        )
 
     # Создаём заказ со статусом PENDING
     order = create_order(data)
