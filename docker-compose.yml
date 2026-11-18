@@ -84,8 +84,6 @@ services:
     build:
       context: .
       dockerfile: graphql_gateway/Dockerfile
-    ports:
-      - "127.0.0.1:8004:8000"
     environment:
       ORDER_SERVICE_URL: http://order-service:8000
       CATALOG_SERVICE_URL: http://nginx/catalog
@@ -172,8 +170,6 @@ services:
     build:
       context: .
       dockerfile: order_read_service/Dockerfile
-    ports:
-      - "127.0.0.1:8005:8000"
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9093
     depends_on:
@@ -194,8 +190,6 @@ services:
     build:
       context: .
       dockerfile: order_write_service/Dockerfile
-    ports:
-      - "127.0.0.1:8007:8000"
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9093
     depends_on:
