@@ -1,6 +1,6 @@
 
 import os
-
+from api_gateway.rate_limit import rate_limit_middleware
 import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response
@@ -11,7 +11,7 @@ app = FastAPI(
     description="Единая точка входа в микросервисную систему",
     version="1.0.0",
 )
-
+app.middleware("http")(rate_limit_middleware)
 
 AUTH_URL = os.getenv(
     "AUTH_SERVICE_URL",
