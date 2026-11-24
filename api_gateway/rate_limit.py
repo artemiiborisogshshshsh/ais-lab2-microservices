@@ -37,6 +37,11 @@ async def rate_limit_middleware(
     request: Request,
     call_next,
 ):
+    if (
+            request.method == "GET"
+            and request.url.path == "/metrics"
+        ):
+            return await call_next(request)
     ip = request.client.host if request.client else "unknown"
     now = time.time()
 

@@ -211,6 +211,15 @@ services:
       - nginx
       - order-service
     restart: unless-stopped
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    restart: unless-stopped
 
 volumes:
   kafka-data:
+  prometheus-data:
