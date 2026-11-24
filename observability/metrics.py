@@ -10,8 +10,12 @@ from prometheus_client import (
 )
 
 
-def setup_metrics(app: FastAPI):
-    registry = CollectorRegistry()
+def setup_metrics(
+    app: FastAPI,
+    registry: CollectorRegistry | None = None,
+):
+    if registry is None:
+        registry = CollectorRegistry()
 
     app.state.metrics_registry = registry
 

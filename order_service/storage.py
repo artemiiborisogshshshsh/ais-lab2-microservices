@@ -4,7 +4,11 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from .models import Order, OrderItem, OrderCreate
-
+from .business_metrics import (
+    ORDERS_CREATED,
+    ORDERS_PAID,
+    ORDERS_CANCELLED,
+)
 
 # Идентификаторы товаров соответствуют тестовым данным Catalog Service.
 
@@ -68,6 +72,8 @@ def create_order(data: OrderCreate) -> Order:
 
     ORDERS.append(new_order)
 
+    ORDERS_CREATED.inc()
+
     return new_order
 
 def confirm_order(order_id: str) -> bool:
@@ -81,6 +87,8 @@ def confirm_order(order_id: str) -> bool:
             # Подтверждаем только ожидающий заказ
             if order.status == "PENDING":
                 order.status = "CONFIRMED"
+
+                ORDERS_PAID.inc()
 
                 print(
                     f"Заказ {order_id} подтверждён",
@@ -114,7 +122,7 @@ def cancel_order(order_id: str) -> bool:
             # Отменяем только ожидающий заказ
             if order.status == "PENDING":
                 order.status = "CANCELLED"
-
+                ORDERS_CANCELLED.inc()
                 print(
                     f"Заказ {order_id} отменён",
                     flush=True
