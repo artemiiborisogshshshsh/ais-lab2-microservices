@@ -9,6 +9,7 @@ from auth_service.login import login
 from auth_service.jwt_utils import create_access_token, decode_access_token
 from auth_service.lifespan import lifespan
 
+from observability.metrics import setup_metrics
 # Настройка приложения и документации OpenAPI
 
 app = FastAPI(
@@ -22,7 +23,7 @@ app = FastAPI(
     lifespan=lifespan,
     root_path="/auth",
 )
-
+setup_metrics(app)
 security = HTTPBearer()
 
 
@@ -164,7 +165,7 @@ def login_user(data: LoginRequest):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Неверное имя пользователя или пароль",
         )
-    
+
     access_token = create_access_token(
         user_id=user["user_id"],
         username=user["user_name"],

@@ -16,6 +16,8 @@ from contextlib import asynccontextmanager
 from threading import Event, Thread
 
 from .consumer import consume_payment_results
+from observability.metrics import setup_metrics
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Запустить Consumer вместе с Order Service."""
@@ -41,7 +43,7 @@ app = FastAPI(
     version="1.2.0",
     lifespan=lifespan,
 )
-
+setup_metrics(app)
 
 @app.get(
     "/orders",

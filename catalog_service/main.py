@@ -5,12 +5,13 @@ from fastapi import FastAPI, status, HTTPException, Query, Header, Depends
 from pydantic import BaseModel
 from catalog_service.lifespan import lifespan
 
+from observability.metrics import setup_metrics
 
 app = FastAPI(
     title="Catalog Service",
     lifespan=lifespan,
 )
-
+setup_metrics(app)
 INSTANCE_NAME = os.getenv("INSTANCE_NAME", "catalog-local")
 
 
