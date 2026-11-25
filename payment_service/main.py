@@ -4,7 +4,11 @@ import os
 import pika
 
 from observability.logging import get_service_logger
-
+from observability.messaging_tracing import (
+    publish_event,
+    traced_consumer,
+    setup_worker_tracing,
+)
 
 logger = get_service_logger(
     "payment-service",
@@ -15,7 +19,11 @@ EXCHANGE_NAME = "lab4.events"
 QUEUE_NAME = "lab4.payment"
 
 
-def process_order(ch, method, properties, body):
+@traced_consumer(
+    "process_payment",
+    QUEUE_NAME,
+)
+def process_order(ch, method, properties, body):    
     try:
         event = json.loads(body.decode("utf-8"))
 
@@ -57,15 +65,12 @@ def process_order(ch, method, properties, body):
             "reason": "Ошибка проведения платежа",
         }
 
-        ch.basic_publish(
+        publish_event(
+            ch,
             exchange=EXCHANGE_NAME,
             routing_key="payment.failed",
             body=json.dumps(failed_event).encode("utf-8"),
             mandatory=True,
-            properties=pika.BasicProperties(
-                delivery_mode=2,
-                content_type="application/json",
-            ),
         )
 
         logger.warning(
@@ -82,15 +87,12 @@ def process_order(ch, method, properties, body):
             "orderId": order_id,
         }
 
-        ch.basic_publish(
+        publish_event(
+            ch,
             exchange=EXCHANGE_NAME,
             routing_key="payment.completed",
             body=json.dumps(completed_event).encode("utf-8"),
             mandatory=True,
-            properties=pika.BasicProperties(
-                delivery_mode=2,
-                content_type="application/json",
-            ),
         )
 
         logger.info(
@@ -105,9 +107,13 @@ def process_order(ch, method, properties, body):
 
 
 def main():
+    setup_worker_tracing("payment-service")
+
     try:
         connection = pika.BlockingConnection(
-            pika.URLParameters(os.environ["RABBITMQ_URL"])
+            pika.URLParameters(
+                os.environ["RABBITMQ_URL"]
+            )
         )
 
     except (pika.exceptions.AMQPError, OSError):

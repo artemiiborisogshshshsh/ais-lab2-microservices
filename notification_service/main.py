@@ -4,7 +4,10 @@ import os
 import pika
 
 from observability.logging import get_service_logger
-
+from observability.messaging_tracing import (
+    traced_consumer,
+    setup_worker_tracing,
+)
 
 logger = get_service_logger(
     "notification-service",
@@ -15,7 +18,13 @@ EXCHANGE_NAME = "lab4.events"
 QUEUE_NAME = "lab4.notification"
 
 
-def process_notification(ch, method, properties, body):
+@traced_consumer(
+    "send_notification",
+    QUEUE_NAME,
+)
+def process_notification(
+    ch, method, properties, body
+):
     """Обработать событие и вывести уведомление."""
 
     try:
@@ -71,6 +80,7 @@ def process_notification(ch, method, properties, body):
 
 
 def main():
+    setup_worker_tracing("notification-service")
     try:
         connection = pika.BlockingConnection(
             pika.URLParameters(os.environ["RABBITMQ_URL"])

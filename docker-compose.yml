@@ -119,6 +119,8 @@ services:
       dockerfile: payment_service/Dockerfile
     environment:
       RABBITMQ_URL: amqp://lab4:lab4pass@rabbitmq:5672/%2F
+      TRACING_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -130,6 +132,8 @@ services:
       dockerfile: notification_service/Dockerfile
     environment:
       RABBITMQ_URL: amqp://lab4:lab4pass@rabbitmq:5672/%2F
+      TRACING_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
     depends_on:
       rabbitmq:
         condition: service_healthy
