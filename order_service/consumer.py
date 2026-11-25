@@ -11,7 +11,7 @@ from .storage import confirm_order, cancel_order, ORDERS
 from .events import publish_order_cancelled
 
 from observability.logging import get_service_logger
-
+from observability.messaging_tracing import traced_consumer
 
 logger = get_service_logger(
     "order-service",
@@ -20,7 +20,10 @@ logger = get_service_logger(
 
 EXCHANGE_NAME = "lab4.events"
 QUEUE_NAME = "lab4.order"
-
+@traced_consumer(
+    "process_payment_result",
+    QUEUE_NAME,
+)
 def process_payment_result(
     ch, method, properties, body, stop_event
 ):

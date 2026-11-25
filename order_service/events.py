@@ -7,7 +7,7 @@ import pika
 
 from .models import Order
 from observability.logging import get_service_logger
-
+from observability.messaging_tracing import publish_event
 
 logger = get_service_logger(
     "order-service",
@@ -51,15 +51,12 @@ def publish_order_created(
             "simulate_failure": simulate_failure
         }
 
-        channel.basic_publish(
+        publish_event(
+            channel,
             exchange=EXCHANGE_NAME,
             routing_key="order.created",
             body=json.dumps(event).encode("utf-8"),
             mandatory=True,
-            properties=pika.BasicProperties(
-                delivery_mode=2,
-                content_type="application/json"
-            )
         )
 
         logger.info(
@@ -99,15 +96,12 @@ def publish_order_cancelled(order_id: str, reason: str) -> None:
             "reason": reason
         }
 
-        channel.basic_publish(
+        publish_event(
+            channel,
             exchange=EXCHANGE_NAME,
             routing_key="order.cancelled",
             body=json.dumps(event).encode("utf-8"),
             mandatory=True,
-            properties=pika.BasicProperties(
-                delivery_mode=2,
-                content_type="application/json"
-            )
         )
 
         logger.info(

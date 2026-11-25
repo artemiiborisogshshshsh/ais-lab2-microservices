@@ -21,7 +21,11 @@ from observability.http_logging import setup_http_logging
 from .business_metrics import ORDER_REGISTRY
 
 from observability.logging import get_service_logger
-
+from observability.http_tracing import setup_http_tracing
+from observability.messaging_tracing import (
+    configure_messaging_tracing,
+)
+from opentelemetry.trace import NoOpTracerProvider
 
 logger = get_service_logger(
     "order-service",
@@ -56,6 +60,18 @@ app = FastAPI(
 )
 setup_metrics(app, registry=ORDER_REGISTRY)
 setup_http_logging(app, "order-service")
+
+tracer_provider = setup_http_tracing(
+    app,
+    "order-service",
+)
+
+configure_messaging_tracing(tracer_provider)
+tracer = (
+    tracer_provider.get_tracer(__name__)
+    if tracer_provider is not None
+    else NoOpTracerProvider().get_tracer(__name__)
+)
 
 @app.get(
     "/orders",
@@ -102,11 +118,18 @@ def require_authenticated_role(
     status_code=201,
     summary="Создать новый заказ"
 )
+@app.post(
+    "/orders",
+    response_model=Order,
+    status_code=201,
+    summary="Создать новый заказ"
+)
 def create_new_order(
     data: OrderCreate,
     user_info: dict = Depends(require_authenticated_role),
 ) -> Order:
     """Создать заказ и опубликовать событие OrderCreated."""
+
     if (
         user_info["role"] == "user"
         and data.user_id != user_info["user_id"]
@@ -116,20 +139,36 @@ def create_new_order(
             detail="Нельзя создать заказ от имени другого пользователя",
         )
 
-    # Создаём заказ со статусом PENDING
-    order = create_order(data)
+    with tracer.start_as_current_span("create_order") as span:
 
-    logger.info(
-        "Order created",
-        extra={
-            "event": "OrderCreated",
-            "order_id": order.id,
-        },
-    )
-    # Отправляем событие в RabbitMQ
-    publish_order_created(
-        order,
-        simulate_failure=data.simulate_failure
-    )
+        span.set_attribute(
+            "order.total_amount",
+            data.total_amount,
+        )
 
-    return order
+        span.set_attribute(
+            "order.items_count",
+            len(data.items),
+        )
+
+        order = create_order(data)
+
+        span.set_attribute(
+            "order.id",
+            order.id,
+        )
+
+        logger.info(
+            "Order created",
+            extra={
+                "event": "OrderCreated",
+                "order_id": order.id,
+            },
+        )
+
+        publish_order_created(
+            order,
+            simulate_failure=data.simulate_failure,
+        )
+
+        return order

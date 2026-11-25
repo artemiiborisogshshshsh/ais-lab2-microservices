@@ -2,6 +2,7 @@ import json
 import os
 import subprocess
 import time
+import re
 
 import httpx
 import pytest
@@ -196,6 +197,50 @@ def test_order_logs_in_loki(
         }
 
         if expected_logs.issubset(observed_logs):
+
+            matched_logs = [
+                log
+                for log in logs
+                if (
+                    log["service_name"],
+                    log["message"],
+                ) in expected_logs
+            ]
+
+            for log in matched_logs:
+
+                assert re.fullmatch(
+                    r"[0-9a-f]{32}",
+                    log.get("trace_id") or "",
+                ), log
+
+                assert re.fullmatch(
+                    r"[0-9a-f]{16}",
+                    log.get("span_id") or "",
+                ), log
+
+                assert int(log["trace_id"], 16) != 0
+                assert int(log["span_id"], 16) != 0
+
+            trace_ids = {
+                log["trace_id"]
+                for log in matched_logs
+            }
+
+            assert len(trace_ids) == 1, trace_ids
+
+            print(
+                f"\nOrder: {order_id}"
+            )
+
+            print(
+                f"Trace ID: {next(iter(trace_ids))}"
+            )
+
+            print(
+                f"Correlated logs: {len(matched_logs)}"
+            )
+
             return
 
         time.sleep(1)
