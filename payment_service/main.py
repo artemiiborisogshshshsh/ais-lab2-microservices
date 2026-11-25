@@ -1,15 +1,18 @@
-
 import json
 import os
 
 import pika
+
+from observability.logging import get_service_logger
 from observability.operation_metrics import OperationMetrics
 
-RABBITMQ_URL = os.environ["RABBITMQ_URL"]
+logger = get_service_logger(
+    "payment-service",
+    __name__,
+)
 
 EXCHANGE_NAME = "lab4.events"
 QUEUE_NAME = "lab4.payment"
-
 metrics = OperationMetrics(
     counter_name="message_processing_total",
     duration_name="message_processing_duration_seconds",
@@ -31,27 +34,33 @@ def process_order(ch, method, properties, body):
         if not isinstance(order_id, str) or not order_id:
             raise ValueError("Отсутствует корректный orderId")
 
-    except (json.JSONDecodeError, UnicodeDecodeError, ValueError) as error:
-        print(f"Некорректное сообщение: {error}", flush=True)
+    except (ValueError, UnicodeDecodeError):
+        logger.warning(
+            "Invalid order event",
+            extra={"event": "InvalidEvent"},
+        )
 
         ch.basic_reject(
-        delivery_tag=method.delivery_tag,
-        requeue=False
-    )
+            delivery_tag=method.delivery_tag,
+            requeue=False,
+        )
         return "rejected"
 
-    print(f"Получено событие OrderCreated: {order_id}", flush=True)
+    logger.info(
+        "OrderCreated received",
+        extra={
+            "event": "OrderCreated",
+            "order_id": order_id,
+        },
+    )
 
-    # Имитируем неуспешную оплату
     if event.get("simulate_failure") is True:
-
         failed_event = {
             "event": "PaymentFailed",
             "orderId": order_id,
-            "reason": "Ошибка проведения платежа"
+            "reason": "Ошибка проведения платежа",
         }
 
-        # Отправляем результат обратно в RabbitMQ
         ch.basic_publish(
             exchange=EXCHANGE_NAME,
             routing_key="payment.failed",
@@ -59,21 +68,24 @@ def process_order(ch, method, properties, body):
             mandatory=True,
             properties=pika.BasicProperties(
                 delivery_mode=2,
-                content_type="application/json"
-            )
+                content_type="application/json",
+            ),
         )
 
-        print(f"Оплата заказа {order_id} не прошла", flush=True)
-        print(f"Опубликовано PaymentFailed: {failed_event}", flush=True)
+        logger.warning(
+            "Payment failed",
+            extra={
+                "event": "PaymentFailed",
+                "order_id": order_id,
+            },
+        )
 
     else:
-        # Имитируем успешную оплату
         completed_event = {
             "event": "PaymentCompleted",
-            "orderId": order_id
+            "orderId": order_id,
         }
 
-        # Публикуем событие успешной оплаты
         ch.basic_publish(
             exchange=EXCHANGE_NAME,
             routing_key="payment.completed",
@@ -81,76 +93,68 @@ def process_order(ch, method, properties, body):
             mandatory=True,
             properties=pika.BasicProperties(
                 delivery_mode=2,
-                content_type="application/json"
-            )
+                content_type="application/json",
+            ),
         )
 
-        print(
-            f"Оплата заказа {order_id} прошла успешно",
-            flush=True
+        logger.info(
+            "Payment completed",
+            extra={
+                "event": "PaymentCompleted",
+                "order_id": order_id,
+            },
         )
 
-        print(
-            f"Опубликовано PaymentCompleted: {completed_event}",
-            flush=True
-        )
-
-    # Подтверждаем обработку сообщения
     ch.basic_ack(delivery_tag=method.delivery_tag)
-
-
 
 
 def main():
     metrics.start(port=9100)
-    connection = pika.BlockingConnection(
-        pika.URLParameters(RABBITMQ_URL)
-    )
+    try:
+        connection = pika.BlockingConnection(
+            pika.URLParameters(os.environ["RABBITMQ_URL"])
+        )
+
+    except (pika.exceptions.AMQPError, OSError):
+        logger.error("RabbitMQ connection failed")
+        raise
 
     channel = connection.channel()
 
-    # Общий Exchange для событий
     channel.exchange_declare(
         exchange=EXCHANGE_NAME,
         exchange_type="topic",
-        durable=True
+        durable=True,
     )
 
-    # Очередь Payment Service
     channel.queue_declare(
         queue=QUEUE_NAME,
-        durable=True
+        durable=True,
     )
 
-    # Подписка на событие создания заказа
     channel.queue_bind(
         exchange=EXCHANGE_NAME,
         queue=QUEUE_NAME,
-        routing_key="order.created"
+        routing_key="order.created",
     )
 
-
-    # Очередь событий для Order Service
     channel.queue_declare(
         queue="lab4.order",
-        durable=True
+        durable=True,
     )
 
-    # Результат неуспешной оплаты
     channel.queue_bind(
         exchange=EXCHANGE_NAME,
         queue="lab4.order",
-        routing_key="payment.failed"
+        routing_key="payment.failed",
     )
 
-    # Результат успешной оплаты
     channel.queue_bind(
         exchange=EXCHANGE_NAME,
         queue="lab4.order",
-        routing_key="payment.completed"
+        routing_key="payment.completed",
     )
 
-    # Ожидаем подтверждения публикации от RabbitMQ
     channel.confirm_delivery()
 
     channel.basic_qos(prefetch_count=1)
@@ -158,16 +162,22 @@ def main():
     channel.basic_consume(
         queue=QUEUE_NAME,
         on_message_callback=process_order,
-        auto_ack=False
+        auto_ack=False,
     )
 
-    print("Payment Service запущен")
-    print("Ожидание событий OrderCreated...")
+    logger.info("Payment Service started")
+    logger.info("Waiting for OrderCreated events")
 
     try:
         channel.start_consuming()
+
     except KeyboardInterrupt:
-        print("Payment Service остановлен")
+        logger.info("Payment Service stopped")
+
+    except (pika.exceptions.AMQPError, OSError):
+        logger.error("RabbitMQ processing failed")
+        raise
+
     finally:
         if connection.is_open:
             connection.close()

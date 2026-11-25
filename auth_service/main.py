@@ -10,6 +10,8 @@ from auth_service.jwt_utils import create_access_token, decode_access_token
 from auth_service.lifespan import lifespan
 
 from observability.metrics import setup_metrics
+from observability.http_logging import setup_http_logging
+
 # Настройка приложения и документации OpenAPI
 
 app = FastAPI(
@@ -24,8 +26,9 @@ app = FastAPI(
     root_path="/auth",
 )
 setup_metrics(app)
-security = HTTPBearer()
+setup_http_logging(app, "auth-service")
 
+security = HTTPBearer()
 
 # Модели входящих данных
 

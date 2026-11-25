@@ -6,13 +6,17 @@ from pydantic import BaseModel
 from catalog_service.lifespan import lifespan
 
 from observability.metrics import setup_metrics
+from observability.http_logging import setup_http_logging
 
 app = FastAPI(
     title="Catalog Service",
     lifespan=lifespan,
 )
 setup_metrics(app)
+
 INSTANCE_NAME = os.getenv("INSTANCE_NAME", "catalog-local")
+
+setup_http_logging(app, INSTANCE_NAME)
 
 
 INITIAL_PRODUCTS = [
