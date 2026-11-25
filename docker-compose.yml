@@ -28,6 +28,8 @@ services:
       BOOTSTRAP_ADMIN_USERNAME: ${BOOTSTRAP_ADMIN_USERNAME:-}
       BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
       BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
+      TRACING_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
     depends_on:
       - consul
 
@@ -43,6 +45,8 @@ services:
       SERVICE_ID: catalog-1
       SERVICE_HOST: catalog-1
       PORT: 8000
+      TRACING_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
     depends_on:
       - consul
 
@@ -55,6 +59,8 @@ services:
       SERVICE_ID: catalog-2
       SERVICE_HOST: catalog-2
       PORT: 8000
+      TRACING_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
     depends_on:
       - consul
       - catalog-1
@@ -76,6 +82,8 @@ services:
       dockerfile: order_service/Dockerfile
 
     environment:
+      TRACING_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
       RABBITMQ_URL: amqp://lab4:lab4pass@rabbitmq:5672/%2F
     depends_on:
       - rabbitmq
@@ -111,6 +119,8 @@ services:
       dockerfile: payment_service/Dockerfile
     environment:
       RABBITMQ_URL: amqp://lab4:lab4pass@rabbitmq:5672/%2F
+      TRACING_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -122,6 +132,8 @@ services:
       dockerfile: notification_service/Dockerfile
     environment:
       RABBITMQ_URL: amqp://lab4:lab4pass@rabbitmq:5672/%2F
+      TRACING_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -206,6 +218,8 @@ services:
       AUTH_SERVICE_URL: http://auth-service:8000
       CATALOG_SERVICE_URL: http://nginx/catalog
       ORDER_SERVICE_URL: http://nginx
+      TRACING_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
     depends_on:
       - auth-service
       - nginx
@@ -236,7 +250,14 @@ services:
     depends_on:
       - loki
     restart: unless-stopped
+  jaeger:
+    image: cr.jaegertracing.io/jaegertracing/jaeger:2.23.0
+    ports:
+      - "127.0.0.1:16686:16686"
+      - "127.0.0.1:4318:4318"
+    restart: unless-stopped
 
+    
 volumes:
   kafka-data:
   prometheus-data:

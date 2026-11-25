@@ -4,8 +4,12 @@ import os
 import pika
 
 from observability.logging import get_service_logger
+from observability.messaging_tracing import (
+    traced_consumer,
+    setup_worker_tracing,
+)
+from opentelemetry import trace
 from observability.operation_metrics import OperationMetrics
-
 logger = get_service_logger(
     "notification-service",
     __name__,
@@ -13,12 +17,20 @@ logger = get_service_logger(
 
 EXCHANGE_NAME = "lab4.events"
 QUEUE_NAME = "lab4.notification"
+
 metrics = OperationMetrics(
     counter_name="message_processing_total",
     duration_name="message_processing_duration_seconds",
 )
+@traced_consumer(
+    "send_notification",
+    QUEUE_NAME,
+)
 @metrics.instrument("process_notification")
-def process_notification(ch, method, properties, body):
+
+def process_notification(
+    ch, method, properties, body
+):
     """Обработать событие и вывести уведомление."""
 
     try:
@@ -51,7 +63,17 @@ def process_notification(ch, method, properties, body):
             requeue=False,
         )
         return "rejected"
+    span = trace.get_current_span()
 
+    span.set_attribute(
+        "order.id",
+        order_id,
+    )
+
+    span.set_attribute(
+        "notification.event",
+        event_name,
+    )
     if event_name == "PaymentCompleted":
         logger.info(
             "Payment notification sent",
@@ -75,6 +97,7 @@ def process_notification(ch, method, properties, body):
 
 def main():
     metrics.start(port=9100)
+    setup_worker_tracing("notification-service")
     try:
         connection = pika.BlockingConnection(
             pika.URLParameters(os.environ["RABBITMQ_URL"])

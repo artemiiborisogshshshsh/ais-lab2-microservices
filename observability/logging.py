@@ -2,8 +2,11 @@ import json
 import logging
 import sys
 from datetime import datetime, timezone
-
-
+from opentelemetry.trace import NoOpTracerProvider
+try:
+    from opentelemetry import trace
+except ImportError:
+    trace = None
 class JsonFormatter(logging.Formatter):
     """Преобразует записи логирования в JSON."""
 
@@ -12,6 +15,17 @@ class JsonFormatter(logging.Formatter):
         self.service_name = service_name
 
     def format(self, record: logging.LogRecord) -> str:
+        trace_id = getattr(record, "trace_id", None)
+        span_id = getattr(record, "span_id", None)
+
+        if trace is not None:
+            span = trace.get_current_span()
+            context = span.get_span_context()
+
+            if context.is_valid:
+                trace_id = format(context.trace_id, "032x")
+                span_id = format(context.span_id, "016x")
+
         log_data = {
             "timestamp": datetime.fromtimestamp(
                 record.created,
@@ -21,8 +35,8 @@ class JsonFormatter(logging.Formatter):
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
-            "trace_id": getattr(record, "trace_id", None),
-            "span_id": getattr(record, "span_id", None),
+            "trace_id": trace_id,
+            "span_id": span_id,
         }
 
         allowed_fields = (

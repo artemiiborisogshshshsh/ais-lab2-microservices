@@ -4,8 +4,14 @@ import os
 import pika
 
 from observability.logging import get_service_logger
+from observability.messaging_tracing import (
+    publish_event,
+    traced_consumer,
+    setup_worker_tracing,
+)
+from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
 from observability.operation_metrics import OperationMetrics
-
 logger = get_service_logger(
     "payment-service",
     __name__,
@@ -17,8 +23,12 @@ metrics = OperationMetrics(
     counter_name="message_processing_total",
     duration_name="message_processing_duration_seconds",
 )
-@metrics.instrument("process_order")
 
+@traced_consumer(
+    "process_payment",
+    QUEUE_NAME,
+)
+@metrics.instrument("process_order")
 def process_order(ch, method, properties, body):
     try:
         event = json.loads(body.decode("utf-8"))
@@ -53,23 +63,38 @@ def process_order(ch, method, properties, body):
             "order_id": order_id,
         },
     )
+    span = trace.get_current_span()
+
+    span.set_attribute(
+        "order.id",
+        order_id,
+    )
 
     if event.get("simulate_failure") is True:
+
+        span.set_attribute(
+            "payment.result",
+            "failed",
+        )
+
+        span.set_status(
+            Status(
+                StatusCode.ERROR,
+                "Payment failed",
+            )
+        )
         failed_event = {
             "event": "PaymentFailed",
             "orderId": order_id,
             "reason": "Ошибка проведения платежа",
         }
 
-        ch.basic_publish(
+        publish_event(
+            ch,
             exchange=EXCHANGE_NAME,
             routing_key="payment.failed",
             body=json.dumps(failed_event).encode("utf-8"),
             mandatory=True,
-            properties=pika.BasicProperties(
-                delivery_mode=2,
-                content_type="application/json",
-            ),
         )
 
         logger.warning(
@@ -81,20 +106,21 @@ def process_order(ch, method, properties, body):
         )
 
     else:
+        span.set_attribute(
+        "payment.result",
+        "completed",
+    )
         completed_event = {
             "event": "PaymentCompleted",
             "orderId": order_id,
         }
 
-        ch.basic_publish(
+        publish_event(
+            ch,
             exchange=EXCHANGE_NAME,
             routing_key="payment.completed",
             body=json.dumps(completed_event).encode("utf-8"),
             mandatory=True,
-            properties=pika.BasicProperties(
-                delivery_mode=2,
-                content_type="application/json",
-            ),
         )
 
         logger.info(
@@ -109,10 +135,13 @@ def process_order(ch, method, properties, body):
 
 
 def main():
+    setup_worker_tracing("payment-service")
     metrics.start(port=9100)
     try:
         connection = pika.BlockingConnection(
-            pika.URLParameters(os.environ["RABBITMQ_URL"])
+            pika.URLParameters(
+                os.environ["RABBITMQ_URL"]
+            )
         )
 
     except (pika.exceptions.AMQPError, OSError):

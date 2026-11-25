@@ -6,6 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response
 from observability.metrics import setup_metrics
 from observability.http_logging import setup_http_logging
+from observability.http_tracing import setup_http_tracing
 
 app = FastAPI(
     title="API Gateway",
@@ -15,6 +16,14 @@ app = FastAPI(
 app.middleware("http")(rate_limit_middleware)
 setup_metrics(app)
 setup_http_logging(app, "api-gateway")
+
+setup_http_tracing(
+    app,
+    "api-gateway",
+    instrument_httpx=True,
+)
+
+
 AUTH_URL = os.getenv(
     "AUTH_SERVICE_URL",
     "http://auth-service:8000"
