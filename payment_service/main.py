@@ -3,15 +3,18 @@ import json
 import os
 
 import pika
-
+from observability.operation_metrics import OperationMetrics
 
 RABBITMQ_URL = os.environ["RABBITMQ_URL"]
 
 EXCHANGE_NAME = "lab4.events"
 QUEUE_NAME = "lab4.payment"
 
-
-
+metrics = OperationMetrics(
+    counter_name="message_processing_total",
+    duration_name="message_processing_duration_seconds",
+)
+@metrics.instrument("process_order")
 
 def process_order(ch, method, properties, body):
     try:
@@ -32,10 +35,10 @@ def process_order(ch, method, properties, body):
         print(f"Некорректное сообщение: {error}", flush=True)
 
         ch.basic_reject(
-            delivery_tag=method.delivery_tag,
-            requeue=False
-        )
-        return
+        delivery_tag=method.delivery_tag,
+        requeue=False
+    )
+        return "rejected"
 
     print(f"Получено событие OrderCreated: {order_id}", flush=True)
 
@@ -99,6 +102,7 @@ def process_order(ch, method, properties, body):
 
 
 def main():
+    metrics.start(port=9100)
     connection = pika.BlockingConnection(
         pika.URLParameters(RABBITMQ_URL)
     )
@@ -125,7 +129,7 @@ def main():
         routing_key="order.created"
     )
 
-    
+
     # Очередь событий для Order Service
     channel.queue_declare(
         queue="lab4.order",
@@ -145,7 +149,7 @@ def main():
         queue="lab4.order",
         routing_key="payment.completed"
     )
-    
+
     # Ожидаем подтверждения публикации от RabbitMQ
     channel.confirm_delivery()
 

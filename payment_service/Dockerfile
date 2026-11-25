@@ -7,5 +7,5 @@ COPY payment_service/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY payment_service/ ./payment_service/
-
+COPY observability /app/observability
 CMD ["python", "-m", "payment_service.main"]

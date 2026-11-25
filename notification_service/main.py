@@ -1,13 +1,17 @@
 
 import json
 import os
-
+from observability.operation_metrics import OperationMetrics
 import pika
 
 
 EXCHANGE_NAME = "lab4.events"
 QUEUE_NAME = "lab4.notification"
-
+metrics = OperationMetrics(
+    counter_name="message_processing_total",
+    duration_name="message_processing_duration_seconds",
+)
+@metrics.instrument("process_notification")
 def process_notification(ch, method, properties, body):
     """Обработать событие и вывести уведомление клиенту."""
 
@@ -35,8 +39,7 @@ def process_notification(ch, method, properties, body):
             delivery_tag=method.delivery_tag,
             requeue=False
         )
-        return
-
+        return "rejected"
     # Успешная оплата — часть Артемия
     if event_name == "PaymentCompleted":
 
@@ -60,6 +63,7 @@ def process_notification(ch, method, properties, body):
 
 
 def main():
+    metrics.start(port=9100)
     connection = pika.BlockingConnection(
         pika.URLParameters(os.environ["RABBITMQ_URL"])
     )

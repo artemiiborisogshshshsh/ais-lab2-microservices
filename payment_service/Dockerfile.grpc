@@ -8,7 +8,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY payment_service/ ./payment_service/
 COPY proto/ ./proto/
-
+COPY observability /app/observability
 EXPOSE 50051
 
 CMD ["python", "-m", "payment_service.grpc_server"]
