@@ -2,15 +2,19 @@
 import os
 from concurrent import futures
 from uuid import uuid4
-
+from observability.operation_metrics import OperationMetrics
 import grpc
 
 from proto import payment_pb2, payment_pb2_grpc
 
-
+metrics = OperationMetrics(
+    counter_name="grpc_requests_total",
+    duration_name="grpc_request_duration_seconds",
+)
 class PaymentGrpcService(
     payment_pb2_grpc.PaymentServiceServicer
 ):
+    @metrics.instrument("CheckPaymentStatus")
     def CheckPaymentStatus(self, request, context):
         order_id = request.order_id
         amount = request.amount
@@ -54,6 +58,7 @@ class PaymentGrpcService(
 
 
 def serve():
+    metrics.start(port=9100)
     server = grpc.server(
         futures.ThreadPoolExecutor(max_workers=10)
     )

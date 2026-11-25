@@ -5,13 +5,13 @@ from strawberry.fastapi import GraphQLRouter
 from graphql_gateway.schema import schema
 from graphql_gateway.products import create_product_loader
 
-
+from observability.metrics import setup_metrics
 app = FastAPI(
     title="GraphQL Gateway",
     description="Единый GraphQL API для микросервисов Order и Catalog",
     version="1.0.0",
 )
-
+setup_metrics(app)
 
 def get_context():
     return {

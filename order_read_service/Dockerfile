@@ -7,6 +7,6 @@ COPY order_read_service/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY order_read_service/ ./order_read_service/
-
+COPY observability /app/observability
 CMD ["uvicorn", "order_read_service.main:app", \
      "--host", "0.0.0.0", "--port", "8000"]

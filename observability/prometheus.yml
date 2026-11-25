@@ -29,3 +29,43 @@ scrape_configs:
     static_configs:
       - targets:
           - api-gateway:8000
+
+  - job_name: analytics
+    static_configs:
+      - targets:
+          - analytics-service:8000
+
+  - job_name: order-read
+    static_configs:
+      - targets:
+          - order-read-service:8000
+
+  - job_name: order-write
+    static_configs:
+      - targets:
+          - order-write-service:8000
+
+  - job_name: graphql-gateway
+    static_configs:
+      - targets:
+          - graphql-gateway:8000
+
+  - job_name: jwt-validator
+    static_configs:
+      - targets:
+          - jwt-validator:8000
+
+  - job_name: payment
+    static_configs:
+      - targets:
+          - payment-service:9100
+
+  - job_name: notification
+    static_configs:
+      - targets:
+          - notification-service:9100
+
+  - job_name: payment-grpc
+    static_configs:
+      - targets:
+          - payment-grpc:9100

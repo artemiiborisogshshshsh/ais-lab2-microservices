@@ -11,6 +11,7 @@ from observability.messaging_tracing import (
 )
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
+from observability.operation_metrics import OperationMetrics
 logger = get_service_logger(
     "payment-service",
     __name__,
@@ -18,12 +19,16 @@ logger = get_service_logger(
 
 EXCHANGE_NAME = "lab4.events"
 QUEUE_NAME = "lab4.payment"
-
+metrics = OperationMetrics(
+    counter_name="message_processing_total",
+    duration_name="message_processing_duration_seconds",
+)
 
 @traced_consumer(
     "process_payment",
     QUEUE_NAME,
 )
+@metrics.instrument("process_order")
 def process_order(ch, method, properties, body):
     try:
         event = json.loads(body.decode("utf-8"))
@@ -49,7 +54,7 @@ def process_order(ch, method, properties, body):
             delivery_tag=method.delivery_tag,
             requeue=False,
         )
-        return
+        return "rejected"
 
     logger.info(
         "OrderCreated received",
@@ -131,7 +136,7 @@ def process_order(ch, method, properties, body):
 
 def main():
     setup_worker_tracing("payment-service")
-
+    metrics.start(port=9100)
     try:
         connection = pika.BlockingConnection(
             pika.URLParameters(

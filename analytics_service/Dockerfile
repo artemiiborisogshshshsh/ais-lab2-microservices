@@ -7,5 +7,5 @@ COPY analytics_service/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY analytics_service/ ./analytics_service/
-
+COPY observability /app/observability
 CMD ["uvicorn", "analytics_service.main:app", "--host", "0.0.0.0", "--port", "8000"]
