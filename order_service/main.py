@@ -19,6 +19,16 @@ from .consumer import consume_payment_results
 from observability.metrics import setup_metrics
 from observability.http_logging import setup_http_logging
 from .business_metrics import ORDER_REGISTRY
+
+from observability.logging import get_service_logger
+
+
+logger = get_service_logger(
+    "order-service",
+    __name__,
+)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Запустить Consumer вместе с Order Service."""
@@ -109,11 +119,13 @@ def create_new_order(
     # Создаём заказ со статусом PENDING
     order = create_order(data)
 
-    print(
-        f"Создан заказ {order.id}, статус: {order.status}",
-        flush=True
+    logger.info(
+        "Order created",
+        extra={
+            "event": "OrderCreated",
+            "order_id": order.id,
+        },
     )
-
     # Отправляем событие в RabbitMQ
     publish_order_created(
         order,

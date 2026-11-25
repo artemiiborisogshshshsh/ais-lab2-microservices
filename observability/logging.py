@@ -58,3 +58,22 @@ def setup_logging(
         handlers=[handler],
         force=True,
     )
+
+def get_service_logger(
+    service_name: str,
+    name: str,
+) -> logging.Logger:
+    """Создаёт отдельный структурированный логгер."""
+
+    logger = logging.Logger(
+        name,
+        level=logging.INFO,
+    )
+
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(JsonFormatter(service_name))
+
+    logger.addHandler(handler)
+    logger.propagate = False
+
+    return logger

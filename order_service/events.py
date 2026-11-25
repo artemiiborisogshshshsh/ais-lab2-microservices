@@ -6,7 +6,13 @@ import os
 import pika
 
 from .models import Order
+from observability.logging import get_service_logger
 
+
+logger = get_service_logger(
+    "order-service",
+    __name__,
+)
 
 EXCHANGE_NAME = "lab4.events"
 
@@ -56,9 +62,12 @@ def publish_order_created(
             )
         )
 
-        print(
-            f"Опубликовано OrderCreated: {event}",
-            flush=True
+        logger.info(
+            "OrderCreated published",
+            extra={
+                "event": "OrderCreated",
+                "order_id": order.id,
+            },
         )
 
     finally:
@@ -101,9 +110,12 @@ def publish_order_cancelled(order_id: str, reason: str) -> None:
             )
         )
 
-        print(
-            f"Опубликовано OrderCancelled: {event}",
-            flush=True
+        logger.info(
+            "OrderCancelled published",
+            extra={
+                "event": "OrderCancelled",
+                "order_id": order_id,
+            },
         )
 
     finally:
