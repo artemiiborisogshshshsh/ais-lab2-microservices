@@ -6,7 +6,7 @@ from threading import Event, Lock, Thread
 
 from fastapi import FastAPI
 from kafka import KafkaConsumer
-
+from observability.metrics import setup_metrics
 
 KAFKA_SERVER = os.getenv(
     "KAFKA_BOOTSTRAP_SERVERS",
@@ -181,7 +181,7 @@ app = FastAPI(
     description="Аналитика CQRS на основе Kafka",
     lifespan=lifespan
 )
-
+setup_metrics(app)
 
 @app.get("/health")
 def health():

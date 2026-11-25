@@ -4,9 +4,9 @@ import jwt
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-
+from observability.metrics import setup_metrics
 app = FastAPI(title="JWT Validator")
-
+setup_metrics(app)
 security = HTTPBearer(auto_error=False)
 
 

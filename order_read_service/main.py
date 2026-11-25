@@ -7,7 +7,7 @@ from threading import Event, Lock, Thread
 
 from fastapi import FastAPI, HTTPException
 from kafka import KafkaConsumer
-
+from observability.metrics import setup_metrics
 
 # Настройки Kafka
 KAFKA_SERVER = os.getenv(
@@ -186,7 +186,7 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-
+setup_metrics(app)
 @app.get("/health")
 def health():
     return {

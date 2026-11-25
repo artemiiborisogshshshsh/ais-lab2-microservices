@@ -1,6 +1,7 @@
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from observability.metrics import setup_metrics
 
 from order_write_service.event_store import (
     EventStore,
@@ -20,7 +21,7 @@ app = FastAPI(
     description="CQRS Write Side для управления заказами"
 )
 
-
+setup_metrics(app)
 # Создаём единое In-Memory хранилище
 event_store = EventStore()
 publisher = KafkaEventPublisher()
