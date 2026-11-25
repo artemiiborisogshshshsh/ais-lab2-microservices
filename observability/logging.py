@@ -25,8 +25,18 @@ class JsonFormatter(logging.Formatter):
             "span_id": getattr(record, "span_id", None),
         }
 
-        if hasattr(record, "order_id"):
-            log_data["order_id"] = record.order_id
+        allowed_fields = (
+            "order_id",
+            "method",
+            "endpoint",
+            "status_code",
+            "duration_ms",
+            "event",
+        )
+
+        for field in allowed_fields:
+            if hasattr(record, field):
+                log_data[field] = getattr(record, field)
 
         return json.dumps(
             log_data,

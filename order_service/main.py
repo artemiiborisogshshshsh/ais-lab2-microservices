@@ -17,6 +17,7 @@ from threading import Event, Thread
 
 from .consumer import consume_payment_results
 from observability.metrics import setup_metrics
+from observability.http_logging import setup_http_logging
 from .business_metrics import ORDER_REGISTRY
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -44,6 +45,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 setup_metrics(app, registry=ORDER_REGISTRY)
+setup_http_logging(app, "order-service")
 
 @app.get(
     "/orders",
