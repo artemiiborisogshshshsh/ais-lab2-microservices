@@ -10,12 +10,20 @@ import pika
 from .storage import confirm_order, cancel_order, ORDERS
 from .events import publish_order_cancelled
 
+from observability.logging import get_service_logger
+
+
+logger = get_service_logger(
+    "order-service",
+    __name__,
+)
 
 EXCHANGE_NAME = "lab4.events"
 QUEUE_NAME = "lab4.order"
 
-
-def process_payment_result(ch, method, properties, body, stop_event):
+def process_payment_result(
+    ch, method, properties, body, stop_event
+):
     """Обработать событие от Payment Service."""
 
     try:
@@ -30,21 +38,18 @@ def process_payment_result(ch, method, properties, body, stop_event):
         if not isinstance(order_id, str) or not order_id:
             raise ValueError("Отсутствует корректный orderId")
 
-    except (ValueError, UnicodeDecodeError) as error:
-        print(f"Некорректное событие оплаты: {error}", flush=True)
+    except (ValueError, UnicodeDecodeError):
+        logger.warning(
+            "Invalid payment event",
+            extra={"event": "InvalidEvent"},
+        )
 
-        # Пока не теряем сообщение: возвращаем в очередь
         ch.basic_nack(
             delivery_tag=method.delivery_tag,
-            requeue=True
+            requeue=True,
         )
         stop_event.set()
         return
-
-    print(
-        f"Получено событие {event_name} для заказа {order_id}",
-        flush=True
-    )
 
     if event_name == "PaymentCompleted":
 
@@ -52,95 +57,114 @@ def process_payment_result(ch, method, properties, body, stop_event):
 
         if confirmed:
             ch.basic_ack(
-                delivery_tag=method.delivery_tag
+                delivery_tag=method.delivery_tag,
             )
 
-            print(
-                f"PaymentCompleted обработан: {order_id}",
-                flush=True
+            logger.info(
+                "Order confirmed",
+                extra={
+                    "event": "PaymentCompleted",
+                    "order_id": order_id,
+                },
             )
 
         else:
-            # Не удаляем результат оплаты,
-            # если соответствующий заказ отсутствует
-            # или его нельзя подтвердить.
+            logger.error(
+                "Order confirmation failed",
+                extra={
+                    "event": "PaymentCompleted",
+                    "order_id": order_id,
+                },
+            )
+
             ch.basic_nack(
                 delivery_tag=method.delivery_tag,
-                requeue=True
+                requeue=True,
             )
             stop_event.set()
 
-   
     elif event_name == "PaymentFailed":
 
-        # Проверяем, не был ли заказ уже отменён
         order = next(
             (order for order in ORDERS if order.id == order_id),
-            None
+            None,
         )
 
         if order is not None and order.status == "CANCELLED":
-            print(
-                f"Заказ {order_id} уже отменён",
-                flush=True
+            logger.info(
+                "Order already cancelled",
+                extra={
+                    "event": "PaymentFailed",
+                    "order_id": order_id,
+                },
             )
+
             ch.basic_ack(delivery_tag=method.delivery_tag)
             return
 
-        # Выполняем компенсацию
         cancelled = cancel_order(order_id)
 
         if cancelled:
             reason = event.get("reason") or "Ошибка оплаты"
 
             try:
-                # Сообщаем остальным сервисам об отмене
                 publish_order_cancelled(order_id, reason)
 
-            except (pika.exceptions.AMQPError, OSError) as error:
-                print(
-                    f"Ошибка публикации OrderCancelled: {error}",
-                    flush=True
+            except (pika.exceptions.AMQPError, OSError):
+                logger.error(
+                    "OrderCancelled publication failed",
+                    extra={
+                        "event": "OrderCancelled",
+                        "order_id": order_id,
+                    },
                 )
 
                 ch.basic_nack(
                     delivery_tag=method.delivery_tag,
-                    requeue=True
+                    requeue=True,
                 )
                 stop_event.set()
                 return
 
             ch.basic_ack(delivery_tag=method.delivery_tag)
 
-            print(
-                f"Компенсация выполнена: {order_id}",
-                flush=True
+            logger.info(
+                "Order cancelled",
+                extra={
+                    "event": "OrderCancelled",
+                    "order_id": order_id,
+                },
             )
 
         else:
-            print(
-                f"Не удалось отменить заказ {order_id}",
-                flush=True
+            logger.error(
+                "Order cancellation failed",
+                extra={
+                    "event": "PaymentFailed",
+                    "order_id": order_id,
+                },
             )
 
             ch.basic_nack(
                 delivery_tag=method.delivery_tag,
-                requeue=True
+                requeue=True,
             )
             stop_event.set()
 
     else:
-        print(
-            f"Неизвестное событие: {event_name}",
-            flush=True
+        logger.warning(
+            "Unknown payment event",
+            extra={
+                "event": "UnknownEvent",
+                "order_id": order_id,
+            },
         )
 
         ch.basic_nack(
             delivery_tag=method.delivery_tag,
-            requeue=True
+            requeue=True,
         )
         stop_event.set()
-
 
 
 def consume_payment_results(stop_event: Event):
@@ -193,10 +217,8 @@ def consume_payment_results(stop_event: Event):
             )
 
            
-            print(
-                "Order Consumer запущен. "
-                "Ожидание PaymentCompleted и PaymentFailed...",
-                flush=True
+            logger.info(
+                "Order Consumer started"
             )
 
 
@@ -204,11 +226,9 @@ def consume_payment_results(stop_event: Event):
                 connection.process_data_events(time_limit=1)
 
         except pika.exceptions.AMQPError as error:
-            print(
-                f"Ошибка подключения к RabbitMQ: {error}",
-                flush=True
+            logger.error(
+                "RabbitMQ connection failed"
             )
-            stop_event.wait(2)
 
         finally:
             if connection is not None and connection.is_open:

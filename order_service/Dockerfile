@@ -9,4 +9,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY order_service/ ./order_service/
 COPY observability /app/observability
-CMD ["uvicorn", "order_service.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "order_service.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
