@@ -1,0 +1,258 @@
+{
+  "uid": "ais-business",
+  "title": "AIS - Business Monitoring",
+  "tags": ["AIS", "Lab8", "Business"],
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "timezone": "browser",
+  "editable": false,
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Created Orders",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0, "y": 0, "w": 8, "h": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(orders_created_total)",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "title": "Paid Orders",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8, "y": 0, "w": 8, "h": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(orders_paid_total)",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "title": "Cancelled Orders",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16, "y": 0, "w": 8, "h": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(orders_cancelled_total)",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "red"
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "title": "Payment Success Rate",
+      "type": "gauge",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0, "y": 5, "w": 12, "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * sum(orders_paid_total) / (sum(orders_paid_total) + sum(orders_cancelled_total))",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "decimals": 1,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "yellow", "value": 50},
+              {"color": "green", "value": 90}
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "title": "Payment Outcomes",
+      "type": "piechart",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12, "y": 5, "w": 12, "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(orders_paid_total)",
+          "legendFormat": "Paid",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "B",
+          "expr": "sum(orders_cancelled_total)",
+          "legendFormat": "Cancelled",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "options": {
+        "pieType": "donut",
+        "displayLabels": ["percent"],
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "values": false
+        }
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Paid"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Cancelled"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 6,
+      "title": "Order Dynamics",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0, "y": 13, "w": 24, "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(orders_created_total)",
+          "legendFormat": "Created"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(orders_paid_total)",
+          "legendFormat": "Paid"
+        },
+        {
+          "refId": "C",
+          "expr": "sum(orders_cancelled_total)",
+          "legendFormat": "Cancelled"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "min": 0
+        },
+        "overrides": []
+      }
+    }
+  ]
+}
