@@ -8,6 +8,7 @@ from observability.messaging_tracing import (
     traced_consumer,
     setup_worker_tracing,
 )
+from opentelemetry import trace
 
 logger = get_service_logger(
     "notification-service",
@@ -57,7 +58,17 @@ def process_notification(
             requeue=False,
         )
         return
+    span = trace.get_current_span()
 
+    span.set_attribute(
+        "order.id",
+        order_id,
+    )
+
+    span.set_attribute(
+        "notification.event",
+        event_name,
+    )
     if event_name == "PaymentCompleted":
         logger.info(
             "Payment notification sent",

@@ -9,7 +9,8 @@ from observability.messaging_tracing import (
     traced_consumer,
     setup_worker_tracing,
 )
-
+from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
 logger = get_service_logger(
     "payment-service",
     __name__,
@@ -23,7 +24,7 @@ QUEUE_NAME = "lab4.payment"
     "process_payment",
     QUEUE_NAME,
 )
-def process_order(ch, method, properties, body):    
+def process_order(ch, method, properties, body):
     try:
         event = json.loads(body.decode("utf-8"))
 
@@ -57,8 +58,26 @@ def process_order(ch, method, properties, body):
             "order_id": order_id,
         },
     )
+    span = trace.get_current_span()
+
+    span.set_attribute(
+        "order.id",
+        order_id,
+    )
 
     if event.get("simulate_failure") is True:
+
+        span.set_attribute(
+            "payment.result",
+            "failed",
+        )
+
+        span.set_status(
+            Status(
+                StatusCode.ERROR,
+                "Payment failed",
+            )
+        )
         failed_event = {
             "event": "PaymentFailed",
             "orderId": order_id,
@@ -82,6 +101,10 @@ def process_order(ch, method, properties, body):
         )
 
     else:
+        span.set_attribute(
+        "payment.result",
+        "completed",
+    )
         completed_event = {
             "event": "PaymentCompleted",
             "orderId": order_id,
