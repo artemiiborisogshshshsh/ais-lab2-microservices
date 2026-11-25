@@ -21,7 +21,7 @@ from observability.http_logging import setup_http_logging
 from .business_metrics import ORDER_REGISTRY
 
 from observability.logging import get_service_logger
-
+from observability.http_tracing import setup_http_tracing
 
 logger = get_service_logger(
     "order-service",
@@ -56,6 +56,7 @@ app = FastAPI(
 )
 setup_metrics(app, registry=ORDER_REGISTRY)
 setup_http_logging(app, "order-service")
+setup_http_tracing(app, "order-service")
 
 @app.get(
     "/orders",

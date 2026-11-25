@@ -11,7 +11,7 @@ from auth_service.lifespan import lifespan
 
 from observability.metrics import setup_metrics
 from observability.http_logging import setup_http_logging
-
+from observability.http_tracing import setup_http_tracing
 # Настройка приложения и документации OpenAPI
 
 app = FastAPI(
@@ -27,6 +27,7 @@ app = FastAPI(
 )
 setup_metrics(app)
 setup_http_logging(app, "auth-service")
+setup_http_tracing(app, "auth-service")
 
 security = HTTPBearer()
 
